@@ -1,0 +1,178 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidMode(mode) {
+      return mode is string && mode in ['wordsearch', 'chosung'];
+    }
+
+    function isValidTheme(theme) {
+      return theme is string && theme in ['all', 'animals', 'food', 'school', 'nature'];
+    }
+
+    function isValidDifficulty(diff) {
+      return diff is string && diff in ['easy', 'medium', 'hard'];
+    }
+
+    function isValidPlayerProfile(data) {
+      return data.keys().hasAll([
+          'uid', 'nickname', 'bestScore', 'gamesCompleted', 'totalWordsSolved', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'nickname', 'bestScore', 'gamesCompleted', 'totalWordsSolved', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.nickname is string
+        && data.nickname.size() >= 1
+        && data.nickname.size() <= 20
+        && data.bestScore is int
+        && data.bestScore >= 0
+        && data.bestScore <= 10000
+        && data.gamesCompleted is int
+        && data.gamesCompleted >= 0
+        && data.gamesCompleted <= 100000
+        && data.totalWordsSolved is int
+        && data.totalWordsSolved >= 0
+        && data.totalWordsSolved <= 1000000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidGameRecord(data) {
+      return data.keys().hasAll([
+          'uid', 'mode', 'theme', 'difficulty', 'score', 'solvedCount', 'totalCount', 'elapsedSeconds', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'mode', 'theme', 'difficulty', 'score', 'solvedCount', 'totalCount', 'elapsedSeconds', 'createdAt'
+        ])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && isValidMode(data.mode)
+        && isValidTheme(data.theme)
+        && isValidDifficulty(data.difficulty)
+        && data.score is int
+        && data.score >= 0
+        && data.score <= 1000
+        && data.solvedCount is int
+        && data.solvedCount >= 0
+        && data.solvedCount <= 50
+        && data.totalCount is int
+        && data.totalCount >= 1
+        && data.totalCount <= 50
+        && data.elapsedSeconds is int
+        && data.elapsedSeconds >= 0
+        && data.elapsedSeconds <= 86400
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLeaderboardEntry(data) {
+      return data.keys().hasAll([
+          'uid', 'nickname', 'mode', 'theme', 'difficulty', 'score', 'solvedCount', 'elapsedSeconds', 'isPublic', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'nickname', 'mode', 'theme', 'difficulty', 'score', 'solvedCount', 'elapsedSeconds', 'isPublic', 'createdAt'
+        ])
+        && isValidId(data.uid)
+        && data.uid == request.auth.uid
+        && data.nickname is string
+        && data.nickname.size() >= 1
+        && data.nickname.size() <= 20
+        && isValidMode(data.mode)
+        && isValidTheme(data.theme)
+        && isValidDifficulty(data.difficulty)
+        && data.score is int
+        && data.score >= 0
+        && data.score <= 1000
+        && data.solvedCount is int
+        && data.solvedCount >= 0
+        && data.solvedCount <= 50
+        && data.elapsedSeconds is int
+        && data.elapsedSeconds >= 0
+        && data.elapsedSeconds <= 86400
+        && data.isPublic is bool
+        && data.isPublic == true
+        && data.createdAt is timestamp;
+    }
+
+    match /playerProfiles/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if false;
+      allow create: if isVerified()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidPlayerProfile(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerified()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidPlayerProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'nickname', 'bestScore', 'gamesCompleted', 'totalWordsSolved', 'updatedAt'
+        ]);
+      allow delete: if false;
+
+      match /history/{recordId} {
+        allow get: if isSignedIn()
+          && isValidId(userId)
+          && isValidId(recordId)
+          && request.auth.uid == userId
+          && get(/databases/$(database)/documents/playerProfiles/$(userId)).data.uid == request.auth.uid;
+        allow list: if isSignedIn()
+          && isValidId(userId)
+          && request.auth.uid == userId
+          && resource.data.uid == request.auth.uid;
+        allow create: if isVerified()
+          && isValidId(userId)
+          && isValidId(recordId)
+          && request.auth.uid == userId
+          && isValidGameRecord(incoming())
+          && incoming().createdAt == request.time
+          && get(/databases/$(database)/documents/playerProfiles/$(userId)).data.uid == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    match /leaderboard/{entryId} {
+      allow get: if isSignedIn()
+        && isValidId(entryId)
+        && resource.data.isPublic == true;
+      allow list: if isSignedIn()
+        && resource.data.isPublic == true;
+      allow create: if isVerified()
+        && isValidId(entryId)
+        && isValidLeaderboardEntry(incoming())
+        && incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+  }
+}

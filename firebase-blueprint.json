@@ -1,0 +1,198 @@
+{
+  "entities": {
+    "PlayerProfile": {
+      "title": "PlayerProfile",
+      "description": "Stores an elementary student's non-PII game statistics and display nickname.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth user UID matching the document ID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "nickname": {
+          "type": "string",
+          "description": "Student display nickname shown on their profile and scoreboard.",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "bestScore": {
+          "type": "integer",
+          "description": "Highest single-round score achieved."
+        },
+        "gamesCompleted": {
+          "type": "integer",
+          "description": "Total number of completed rounds."
+        },
+        "totalWordsSolved": {
+          "type": "integer",
+          "description": "Cumulative number of solved words across all rounds."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last-updated timestamp."
+        }
+      },
+      "required": [
+        "uid",
+        "nickname",
+        "bestScore",
+        "gamesCompleted",
+        "totalWordsSolved",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "GameRecord": {
+      "title": "GameRecord",
+      "description": "An immutable record of a single completed game round in a player's history.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["wordsearch", "chosung"],
+          "description": "Game mode played."
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["all", "animals", "food", "school", "nature"],
+          "description": "Vocabulary theme selected."
+        },
+        "difficulty": {
+          "type": "string",
+          "enum": ["easy", "medium", "hard"],
+          "description": "Difficulty level selected."
+        },
+        "score": {
+          "type": "integer",
+          "description": "Points earned in this round."
+        },
+        "solvedCount": {
+          "type": "integer",
+          "description": "Words solved in this round."
+        },
+        "totalCount": {
+          "type": "integer",
+          "description": "Total words in this round."
+        },
+        "elapsedSeconds": {
+          "type": "integer",
+          "description": "Time spent in seconds."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server completion timestamp."
+        }
+      },
+      "required": [
+        "uid",
+        "mode",
+        "theme",
+        "difficulty",
+        "score",
+        "solvedCount",
+        "totalCount",
+        "elapsedSeconds",
+        "createdAt"
+      ]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "A public non-PII scoreboard entry for a completed round.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the player.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "nickname": {
+          "type": "string",
+          "description": "Player nickname displayed on the scoreboard.",
+          "minLength": 1,
+          "maxLength": 20
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["wordsearch", "chosung"],
+          "description": "Game mode played."
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["all", "animals", "food", "school", "nature"],
+          "description": "Vocabulary theme."
+        },
+        "difficulty": {
+          "type": "string",
+          "enum": ["easy", "medium", "hard"],
+          "description": "Difficulty level."
+        },
+        "score": {
+          "type": "integer",
+          "description": "Round score."
+        },
+        "solvedCount": {
+          "type": "integer",
+          "description": "Words solved in this round."
+        },
+        "elapsedSeconds": {
+          "type": "integer",
+          "description": "Time spent in seconds."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Flag indicating scoreboard visibility."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        }
+      },
+      "required": [
+        "uid",
+        "nickname",
+        "mode",
+        "theme",
+        "difficulty",
+        "score",
+        "solvedCount",
+        "elapsedSeconds",
+        "isPublic",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/playerProfiles/{userId}": {
+      "schema": { "$ref": "#/entities/PlayerProfile" },
+      "description": "Owner-only non-PII player profile and cumulative stats."
+    },
+    "/playerProfiles/{userId}/history/{recordId}": {
+      "schema": { "$ref": "#/entities/GameRecord" },
+      "description": "Immutable per-round game history scoped under each player profile."
+    },
+    "/leaderboard/{entryId}": {
+      "schema": { "$ref": "#/entities/LeaderboardEntry" },
+      "description": "Publicly readable non-PII scoreboard entries for signed-in players."
+    }
+  }
+}
